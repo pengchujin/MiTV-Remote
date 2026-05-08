@@ -1,6 +1,7 @@
 import AppKit
 import CECPrivateBridge
 import CryptoKit
+import Darwin
 
 private final class RemoteControlView: NSView {
     var onKeyDown: ((NSEvent) -> NSEvent?)?
@@ -72,6 +73,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(controls)
         menu.addItem(.separator())
 
+        menu.addItem(menuItem("搜索/切换设备", symbol: "magnifyingglass", key: "s", action: #selector(searchAndSwitchDevice)))
         menu.addItem(menuItem("检查小米电视 Wi-Fi", symbol: "wifi", key: "c", action: #selector(checkConnection)))
         menu.addItem(menuItem("退出", symbol: "power", key: "q", action: #selector(quit)))
 
@@ -190,6 +192,20 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             let result = await cec.checkAvailability()
             await MainActor.run {
                 showResult(title: result.isSuccess ? "小米电视已连接" : "小米电视连接失败", result: result)
+            }
+        }
+    }
+
+    @objc private func searchAndSwitchDevice() {
+        Task {
+            let result = await cec.discoverDevices()
+            await MainActor.run {
+                switch result {
+                case .success(let devices):
+                    presentDevicePicker(devices)
+                case .failure(let failure):
+                    showResult(title: "搜索设备失败", result: failure)
+                }
             }
         }
     }
@@ -371,6 +387,43 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.addButton(withTitle: "OK")
         alert.runModal()
     }
+
+    private func presentDevicePicker(_ devices: [MiTVDevice]) {
+        guard !devices.isEmpty else {
+            showResult(
+                title: "未找到设备",
+                result: CECResult(isSuccess: false, message: "没有在当前局域网发现 6095 端口的小米/Redmi 设备。")
+            )
+            return
+        }
+
+        let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 320, height: 28), pullsDown: false)
+        for device in devices {
+            let item = NSMenuItem(title: "\(device.name)  \(device.host)", action: nil, keyEquivalent: "")
+            item.representedObject = device.host
+            popup.menu?.addItem(item)
+        }
+
+        let alert = NSAlert()
+        alert.messageText = "选择设备"
+        alert.informativeText = "找到 \(devices.count) 台小米/Redmi 设备。"
+        alert.accessoryView = popup
+        alert.addButton(withTitle: "使用")
+        alert.addButton(withTitle: "取消")
+
+        guard alert.runModal() == .alertFirstButtonReturn,
+              let host = popup.selectedItem?.representedObject as? String
+        else {
+            return
+        }
+
+        cec.setDeviceHost(host)
+        refreshVolume()
+        showResult(
+            title: "已切换设备",
+            result: CECResult(isSuccess: true, message: "当前控制目标：\(host)")
+        )
+    }
 }
 
 private enum CECCommand {
@@ -422,6 +475,11 @@ private struct MiTVSystemInfo {
             .replacingOccurrences(of: ":", with: "")
             .lowercased()
     }
+}
+
+private struct MiTVDevice {
+    let name: String
+    let host: String
 }
 
 private enum BrightnessDirection {
@@ -493,6 +551,14 @@ private final class CECController {
 
     func switchHDMIInput(_ input: Int) async -> CECResult {
         await miTV.switchHDMIInput(input)
+    }
+
+    func discoverDevices() async -> Result<[MiTVDevice], CECResult> {
+        await miTV.discoverDevices()
+    }
+
+    func setDeviceHost(_ host: String) {
+        miTV.setHost(host)
     }
 
     func setBrightnessPercentViaCECMenu(_ percent: Int) async -> CECResult {
@@ -602,8 +668,57 @@ private final class MiTVController {
         return "192.168.1.50"
     }
 
+    func setHost(_ host: String) {
+        UserDefaults.standard.set(host, forKey: "MiTVHost")
+    }
+
     func checkAvailability() async -> CECResult {
         await request(path: "/controller?action=getinstalledapp&count=1", successMessage: "已连接到小米电视：\(host):\(port)")
+    }
+
+    func discoverDevices() async -> Result<[MiTVDevice], CECResult> {
+        let prefixes = Self.localIPv4Prefixes()
+        guard !prefixes.isEmpty else {
+            return .failure(CECResult(isSuccess: false, message: "没有找到可用于扫描的局域网 IPv4 地址。"))
+        }
+
+        let hosts = Set(prefixes.flatMap { prefix in
+            (1...254).map { "\(prefix).\($0)" }
+        })
+
+        let devices = await withTaskGroup(of: MiTVDevice?.self, returning: [MiTVDevice].self) { group in
+            for host in hosts {
+                group.addTask {
+                    await self.probeDevice(host)
+                }
+            }
+
+            var found: [MiTVDevice] = []
+            for await device in group {
+                if let device {
+                    found.append(device)
+                }
+            }
+            return found.sorted { $0.host.localizedStandardCompare($1.host) == .orderedAscending }
+        }
+
+        return .success(devices)
+    }
+
+    private func probeDevice(_ host: String) async -> MiTVDevice? {
+        let result = await requestJSON(host: host, path: "/request?action=isalive", timeout: 0.45)
+        guard result.response.isSuccess,
+              let root = result.json as? [String: Any],
+              let data = root["data"] as? [String: Any]
+        else {
+            return nil
+        }
+
+        let name = (data["devicename"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return MiTVDevice(
+            name: name?.isEmpty == false ? name! : "MiTV",
+            host: host
+        )
     }
 
     func volumeStatus() async -> Result<VolumeStatus, CECResult> {
@@ -788,13 +903,17 @@ private final class MiTVController {
     }
 
     private func requestJSON(path: String) async -> (response: CECResult, json: Any?, body: String) {
+        await requestJSON(host: host, path: path, timeout: 2)
+    }
+
+    private func requestJSON(host: String, path: String, timeout: TimeInterval) async -> (response: CECResult, json: Any?, body: String) {
         guard let url = URL(string: "http://\(host):\(port)\(path)") else {
             let response = CECResult(isSuccess: false, message: "小米电视地址无效：\(host)")
             return (response, nil, "")
         }
 
         var request = URLRequest(url: url)
-        request.timeoutInterval = 2
+        request.timeoutInterval = timeout
 
         do {
             let (data, urlResponse) = try await URLSession.shared.data(for: request)
@@ -830,6 +949,48 @@ private final class MiTVController {
             )
             return (response, nil, "")
         }
+    }
+
+    private static func localIPv4Prefixes() -> [String] {
+        var addresses: [String] = []
+        var interfaces: UnsafeMutablePointer<ifaddrs>?
+
+        guard getifaddrs(&interfaces) == 0, let firstInterface = interfaces else {
+            return []
+        }
+        defer {
+            freeifaddrs(interfaces)
+        }
+
+        for pointer in sequence(first: firstInterface, next: { $0.pointee.ifa_next }) {
+            let interface = pointer.pointee
+            let flags = Int32(interface.ifa_flags)
+            let isUp = (flags & IFF_UP) != 0
+            let isLoopback = (flags & IFF_LOOPBACK) != 0
+
+            guard isUp, !isLoopback,
+                  let address = interface.ifa_addr,
+                  address.pointee.sa_family == UInt8(AF_INET)
+            else {
+                continue
+            }
+
+            var addr = address.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee.sin_addr }
+            var buffer = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+            guard inet_ntop(AF_INET, &addr, &buffer, socklen_t(INET_ADDRSTRLEN)) != nil else {
+                continue
+            }
+
+            let ip = String(cString: buffer)
+            let parts = ip.split(separator: ".")
+            guard parts.count == 4 else {
+                continue
+            }
+
+            addresses.append(parts.prefix(3).joined(separator: "."))
+        }
+
+        return Array(Set(addresses)).sorted()
     }
 }
 
