@@ -10,6 +10,7 @@ macOS menu bar remote for Xiaomi/Redmi displays exposed through MiTV Assistant S
 - Compact remote control buttons
 - Keyboard arrow keys mapped to remote direction keys while the menu is open
 - LAN device discovery and device switching
+- Device, online, and last selected HDMI input status display
 
 ## Run
 

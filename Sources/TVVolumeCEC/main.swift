@@ -26,6 +26,9 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var volumeLabel: NSTextField?
     private var volumeSlider: NSSlider?
+    private var deviceStatusLabel: NSTextField?
+    private var inputStatusLabel: NSTextField?
+    private var onlineStatusLabel: NSTextField?
     private var brightnessLabel: NSTextField?
     private var brightnessPercent = 50
     private var keyEventMonitors: [Any] = []
@@ -56,8 +59,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         item.menu = makeMenu()
+        updateStatusUI(deviceName: nil, isOnline: nil)
         refreshVolume()
         refreshBrightness()
+        refreshDeviceStatus()
     }
 
     private func makeMenu() -> NSMenu {
@@ -100,43 +105,58 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func makeControlsView() -> NSView {
-        let view = RemoteControlView(frame: NSRect(x: 0, y: 0, width: 240, height: 272))
+        let view = RemoteControlView(frame: NSRect(x: 0, y: 0, width: 240, height: 326))
         view.onKeyDown = { [weak self] event in
             self?.handleKeyDown(event) ?? event
         }
         remoteControlView = view
 
         let label = NSTextField(labelWithString: "当前音量：--%")
-        label.frame = NSRect(x: 16, y: 244, width: 208, height: 18)
+        label.frame = NSRect(x: 16, y: 298, width: 208, height: 18)
         label.font = .systemFont(ofSize: 13, weight: .medium)
         view.addSubview(label)
         volumeLabel = label
 
         let slider = NSSlider(value: 50, minValue: 0, maxValue: 100, target: self, action: #selector(volumeSliderChanged(_:)))
-        slider.frame = NSRect(x: 12, y: 214, width: 216, height: 28)
+        slider.frame = NSRect(x: 12, y: 268, width: 216, height: 28)
         slider.isContinuous = false
         slider.numberOfTickMarks = 5
         slider.allowsTickMarkValuesOnly = false
         view.addSubview(slider)
         volumeSlider = slider
 
-        addRemoteButton(to: view, title: "HDMI 1", frame: NSRect(x: 18, y: 174, width: 94, height: 30), action: #selector(switchHDMI1), label: "切换 HDMI 1")
-        addRemoteButton(to: view, title: "HDMI 2", frame: NSRect(x: 128, y: 174, width: 94, height: 30), action: #selector(switchHDMI2), label: "切换 HDMI 2")
-        addRemoteButton(to: view, symbol: "power", frame: NSRect(x: 18, y: 136, width: 44, height: 32), action: #selector(remotePower), label: "电源")
-        addRemoteButton(to: view, symbol: "speaker.minus.fill", frame: NSRect(x: 98, y: 136, width: 44, height: 32), action: #selector(remoteVolumeDown), label: "音量减")
-        addRemoteButton(to: view, symbol: "speaker.plus.fill", frame: NSRect(x: 178, y: 136, width: 44, height: 32), action: #selector(remoteVolumeUp), label: "音量加")
+        addRemoteButton(to: view, title: "HDMI 1", frame: NSRect(x: 18, y: 228, width: 94, height: 30), action: #selector(switchHDMI1), label: "切换 HDMI 1")
+        addRemoteButton(to: view, title: "HDMI 2", frame: NSRect(x: 128, y: 228, width: 94, height: 30), action: #selector(switchHDMI2), label: "切换 HDMI 2")
+        addRemoteButton(to: view, symbol: "power", frame: NSRect(x: 18, y: 190, width: 44, height: 32), action: #selector(remotePower), label: "电源")
+        addRemoteButton(to: view, symbol: "speaker.minus.fill", frame: NSRect(x: 98, y: 190, width: 44, height: 32), action: #selector(remoteVolumeDown), label: "音量减")
+        addRemoteButton(to: view, symbol: "speaker.plus.fill", frame: NSRect(x: 178, y: 190, width: 44, height: 32), action: #selector(remoteVolumeUp), label: "音量加")
 
-        addRemoteButton(to: view, symbol: "chevron.up", frame: NSRect(x: 102, y: 104, width: 36, height: 28), action: #selector(remoteUp), label: "上")
-        addRemoteButton(to: view, symbol: "chevron.left", frame: NSRect(x: 54, y: 68, width: 36, height: 28), action: #selector(remoteLeft), label: "左")
-        addRemoteButton(to: view, title: "OK", frame: NSRect(x: 100, y: 64, width: 40, height: 36), action: #selector(remoteOK), label: "确认")
-        addRemoteButton(to: view, symbol: "chevron.right", frame: NSRect(x: 150, y: 68, width: 36, height: 28), action: #selector(remoteRight), label: "右")
-        addRemoteButton(to: view, symbol: "chevron.down", frame: NSRect(x: 102, y: 30, width: 36, height: 28), action: #selector(remoteDown), label: "下")
+        addRemoteButton(to: view, symbol: "chevron.up", frame: NSRect(x: 102, y: 158, width: 36, height: 28), action: #selector(remoteUp), label: "上")
+        addRemoteButton(to: view, symbol: "chevron.left", frame: NSRect(x: 54, y: 122, width: 36, height: 28), action: #selector(remoteLeft), label: "左")
+        addRemoteButton(to: view, title: "OK", frame: NSRect(x: 100, y: 118, width: 40, height: 36), action: #selector(remoteOK), label: "确认")
+        addRemoteButton(to: view, symbol: "chevron.right", frame: NSRect(x: 150, y: 122, width: 36, height: 28), action: #selector(remoteRight), label: "右")
+        addRemoteButton(to: view, symbol: "chevron.down", frame: NSRect(x: 102, y: 84, width: 36, height: 28), action: #selector(remoteDown), label: "下")
 
-        addRemoteButton(to: view, symbol: "house", frame: NSRect(x: 18, y: 0, width: 44, height: 30), action: #selector(remoteHome), label: "主页")
-        addRemoteButton(to: view, symbol: "arrow.uturn.backward", frame: NSRect(x: 88, y: 0, width: 64, height: 30), action: #selector(remoteBack), label: "返回")
-        addRemoteButton(to: view, symbol: "line.3.horizontal", frame: NSRect(x: 178, y: 0, width: 44, height: 30), action: #selector(remoteMenu), label: "菜单")
+        addRemoteButton(to: view, symbol: "house", frame: NSRect(x: 18, y: 54, width: 44, height: 30), action: #selector(remoteHome), label: "主页")
+        addRemoteButton(to: view, symbol: "arrow.uturn.backward", frame: NSRect(x: 88, y: 54, width: 64, height: 30), action: #selector(remoteBack), label: "返回")
+        addRemoteButton(to: view, symbol: "line.3.horizontal", frame: NSRect(x: 178, y: 54, width: 44, height: 30), action: #selector(remoteMenu), label: "菜单")
+
+        deviceStatusLabel = addStatusLabel(to: view, frame: NSRect(x: 14, y: 32, width: 212, height: 14))
+        inputStatusLabel = addStatusLabel(to: view, frame: NSRect(x: 14, y: 17, width: 100, height: 14))
+        onlineStatusLabel = addStatusLabel(to: view, frame: NSRect(x: 126, y: 17, width: 100, height: 14))
 
         return view
+    }
+
+    @discardableResult
+    private func addStatusLabel(to view: NSView, frame: NSRect) -> NSTextField {
+        let label = NSTextField(labelWithString: "")
+        label.frame = frame
+        label.font = .systemFont(ofSize: 11)
+        label.textColor = .secondaryLabelColor
+        label.lineBreakMode = .byTruncatingTail
+        view.addSubview(label)
+        return label
     }
 
     private func addRemoteButton(to view: NSView, symbol: String, frame: NSRect, action: Selector, label: String) {
@@ -326,6 +346,23 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             await MainActor.run {
                 if !result.isSuccess {
                     showResult(title: "HDMI 切换失败", result: result)
+                } else {
+                    cec.setCurrentInputName("HDMI \(input)")
+                    updateInputStatusUI()
+                }
+            }
+        }
+    }
+
+    private func refreshDeviceStatus() {
+        Task {
+            let status = await cec.deviceStatus()
+            await MainActor.run {
+                switch status {
+                case .success(let device):
+                    updateStatusUI(deviceName: device.name, isOnline: true)
+                case .failure:
+                    updateStatusUI(deviceName: nil, isOnline: false)
                 }
             }
         }
@@ -398,6 +435,18 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         brightnessLabel?.stringValue = "当前亮度：\(clamped)%"
     }
 
+    private func updateStatusUI(deviceName: String?, isOnline: Bool?) {
+        let host = cec.currentHost
+        let name = deviceName ?? UserDefaults.standard.string(forKey: "MiTVDeviceName")
+        deviceStatusLabel?.stringValue = "设备：\(name?.isEmpty == false ? name! : host)"
+        onlineStatusLabel?.stringValue = "在线：\(isOnline == nil ? "--" : (isOnline == true ? "是" : "否"))"
+        updateInputStatusUI()
+    }
+
+    private func updateInputStatusUI() {
+        inputStatusLabel?.stringValue = "输入：\(cec.currentInputName)"
+    }
+
     private func showResult(title: String, result: CECResult) {
         let alert = NSAlert()
         alert.messageText = title
@@ -437,7 +486,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         cec.setDeviceHost(host)
+        if let device = devices.first(where: { $0.host == host }) {
+            UserDefaults.standard.set(device.name, forKey: "MiTVDeviceName")
+        }
         refreshVolume()
+        refreshDeviceStatus()
         showResult(
             title: "已切换设备",
             result: CECResult(isSuccess: true, message: "当前控制目标：\(host)")
@@ -536,6 +589,14 @@ private enum BrightnessDirection {
 private final class CECController {
     private let miTV = MiTVController()
 
+    var currentHost: String {
+        miTV.currentHost
+    }
+
+    var currentInputName: String {
+        miTV.currentInputName
+    }
+
     func send(_ command: CECCommand) async -> CECResult {
         if let keyCode = command.miTVKeyCode {
             return await miTV.sendKey(keyCode)
@@ -578,6 +639,14 @@ private final class CECController {
 
     func setDeviceHost(_ host: String) {
         miTV.setHost(host)
+    }
+
+    func setCurrentInputName(_ inputName: String) {
+        miTV.setCurrentInputName(inputName)
+    }
+
+    func deviceStatus() async -> Result<MiTVDevice, CECResult> {
+        await miTV.deviceStatus()
     }
 
     func setBrightnessPercentViaCECMenu(_ percent: Int) async -> CECResult {
@@ -687,12 +756,40 @@ private final class MiTVController {
         return "192.168.1.50"
     }
 
+    var currentHost: String {
+        host
+    }
+
+    var currentInputName: String {
+        UserDefaults.standard.string(forKey: "MiTVInputName") ?? "--"
+    }
+
     func setHost(_ host: String) {
         UserDefaults.standard.set(host, forKey: "MiTVHost")
     }
 
+    func setCurrentInputName(_ inputName: String) {
+        UserDefaults.standard.set(inputName, forKey: "MiTVInputName")
+    }
+
     func checkAvailability() async -> CECResult {
         await request(path: "/controller?action=getinstalledapp&count=1", successMessage: "已连接到小米电视：\(host):\(port)")
+    }
+
+    func deviceStatus() async -> Result<MiTVDevice, CECResult> {
+        let result = await requestJSON(path: "/request?action=isalive")
+        guard result.response.isSuccess,
+              let root = result.json as? [String: Any],
+              let data = root["data"] as? [String: Any]
+        else {
+            return .failure(result.response)
+        }
+
+        let name = (data["devicename"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return .success(MiTVDevice(
+            name: name?.isEmpty == false ? name! : "MiTV",
+            host: host
+        ))
     }
 
     func discoverDevices() async -> Result<[MiTVDevice], CECResult> {
