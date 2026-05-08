@@ -50,9 +50,9 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = item
 
         if let button = item.button {
-            button.image = NSImage(systemSymbolName: "speaker.wave.2.fill", accessibilityDescription: "TV Volume")
+            button.image = remoteStatusIcon()
             button.image?.isTemplate = true
-            button.toolTip = "TV Volume over HDMI-CEC"
+            button.toolTip = "MiTV Remote"
         }
 
         item.menu = makeMenu()
@@ -74,10 +74,29 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
 
         menu.addItem(menuItem("搜索/切换设备", symbol: "magnifyingglass", key: "s", action: #selector(searchAndSwitchDevice)))
-        menu.addItem(menuItem("检查小米电视 Wi-Fi", symbol: "wifi", key: "c", action: #selector(checkConnection)))
         menu.addItem(menuItem("退出", symbol: "power", key: "q", action: #selector(quit)))
 
         return menu
+    }
+
+    private func remoteStatusIcon() -> NSImage {
+        let image = NSImage(size: NSSize(width: 18, height: 18))
+        image.lockFocus()
+
+        NSColor.labelColor.setStroke()
+        NSColor.labelColor.setFill()
+
+        let body = NSBezierPath(roundedRect: NSRect(x: 5, y: 2, width: 8, height: 14), xRadius: 3, yRadius: 3)
+        body.lineWidth = 1.6
+        body.stroke()
+
+        NSBezierPath(ovalIn: NSRect(x: 7.2, y: 11, width: 3.6, height: 3.6)).fill()
+        NSBezierPath(ovalIn: NSRect(x: 7.7, y: 7.2, width: 2.6, height: 2.6)).fill()
+        NSBezierPath(ovalIn: NSRect(x: 7.7, y: 4.2, width: 2.6, height: 2.6)).fill()
+
+        image.unlockFocus()
+        image.isTemplate = true
+        return image
     }
 
     private func makeControlsView() -> NSView {
