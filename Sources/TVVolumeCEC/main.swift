@@ -26,9 +26,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var volumeLabel: NSTextField?
     private var volumeSlider: NSSlider?
-    private var deviceStatusLabel: NSTextField?
-    private var inputStatusLabel: NSTextField?
-    private var onlineStatusLabel: NSTextField?
+    private var deviceIPLabel: NSTextField?
+    private var deviceNameLabel: NSTextField?
     private var brightnessLabel: NSTextField?
     private var brightnessPercent = 50
     private var keyEventMonitors: [Any] = []
@@ -59,7 +58,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         item.menu = makeMenu()
-        updateStatusUI(deviceName: nil, isOnline: nil)
+        updateStatusUI(deviceName: nil)
         refreshVolume()
         refreshBrightness()
         refreshDeviceStatus()
@@ -141,9 +140,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         addRemoteButton(to: view, symbol: "arrow.uturn.backward", frame: NSRect(x: 88, y: 54, width: 64, height: 30), action: #selector(remoteBack), label: "返回")
         addRemoteButton(to: view, symbol: "line.3.horizontal", frame: NSRect(x: 178, y: 54, width: 44, height: 30), action: #selector(remoteMenu), label: "菜单")
 
-        deviceStatusLabel = addStatusLabel(to: view, frame: NSRect(x: 14, y: 32, width: 212, height: 14))
-        inputStatusLabel = addStatusLabel(to: view, frame: NSRect(x: 14, y: 17, width: 100, height: 14))
-        onlineStatusLabel = addStatusLabel(to: view, frame: NSRect(x: 126, y: 17, width: 100, height: 14))
+        deviceIPLabel = addStatusLabel(to: view, frame: NSRect(x: 14, y: 32, width: 212, height: 14))
+        deviceNameLabel = addStatusLabel(to: view, frame: NSRect(x: 14, y: 17, width: 212, height: 14))
 
         return view
     }
@@ -346,9 +344,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             await MainActor.run {
                 if !result.isSuccess {
                     showResult(title: "HDMI 切换失败", result: result)
-                } else {
-                    cec.setCurrentInputName("HDMI \(input)")
-                    updateInputStatusUI()
                 }
             }
         }
@@ -360,9 +355,9 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             await MainActor.run {
                 switch status {
                 case .success(let device):
-                    updateStatusUI(deviceName: device.name, isOnline: true)
+                    updateStatusUI(deviceName: device.name)
                 case .failure:
-                    updateStatusUI(deviceName: nil, isOnline: false)
+                    updateStatusUI(deviceName: nil)
                 }
             }
         }
@@ -435,16 +430,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         brightnessLabel?.stringValue = "当前亮度：\(clamped)%"
     }
 
-    private func updateStatusUI(deviceName: String?, isOnline: Bool?) {
+    private func updateStatusUI(deviceName: String?) {
         let host = cec.currentHost
         let name = deviceName ?? UserDefaults.standard.string(forKey: "MiTVDeviceName")
-        deviceStatusLabel?.stringValue = "设备：\(name?.isEmpty == false ? name! : host)"
-        onlineStatusLabel?.stringValue = "在线：\(isOnline == nil ? "--" : (isOnline == true ? "是" : "否"))"
-        updateInputStatusUI()
-    }
-
-    private func updateInputStatusUI() {
-        inputStatusLabel?.stringValue = "输入：\(cec.currentInputName)"
+        deviceIPLabel?.stringValue = "设备 IP：\(host)"
+        deviceNameLabel?.stringValue = "设备名：\(name?.isEmpty == false ? name! : "--")"
     }
 
     private func showResult(title: String, result: CECResult) {
@@ -593,10 +583,6 @@ private final class CECController {
         miTV.currentHost
     }
 
-    var currentInputName: String {
-        miTV.currentInputName
-    }
-
     func send(_ command: CECCommand) async -> CECResult {
         if let keyCode = command.miTVKeyCode {
             return await miTV.sendKey(keyCode)
@@ -639,10 +625,6 @@ private final class CECController {
 
     func setDeviceHost(_ host: String) {
         miTV.setHost(host)
-    }
-
-    func setCurrentInputName(_ inputName: String) {
-        miTV.setCurrentInputName(inputName)
     }
 
     func deviceStatus() async -> Result<MiTVDevice, CECResult> {
