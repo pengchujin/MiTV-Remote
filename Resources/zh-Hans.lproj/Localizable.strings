@@ -76,7 +76,10 @@
 "brightness.osd_still_open" = "OSD 菜单仍打开，只发送了%@亮度按键。";
 
 /* CEC */
-"cec.check_failed" = "CEC %@ 失败。\n\n%@";
+"cec.step_menu" = "菜单";
+"cec.step_right" = "右键";
+"cec.step_down" = "下键";
+"cec.step_confirm" = "确认";
 "cec.down_reset_failed" = "CEC 下键归零失败。\n\n%@";
 "cec.up_brightness_failed" = "CEC 上键调亮失败。\n\n%@";
 "cec.brightness_sequence_sent" = "已通过 Apple 私有 IOCEC 发送 CEC 菜单亮度序列：菜单、右键、下键、确认、上下键。";

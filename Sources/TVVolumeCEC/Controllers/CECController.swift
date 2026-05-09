@@ -58,10 +58,10 @@ final class CECController {
     func setBrightnessPercentViaCECMenu(_ percent: Int) async -> CECResult {
         let clamped = min(100, max(0, percent))
         let openBrightness: [(UInt8, String)] = [
-            (0x09, "菜单"),
-            (0x04, "右键"),
-            (0x02, "下键"),
-            (0x00, "确认")
+            (0x09, L.string("cec.step_menu")),
+            (0x04, L.string("cec.step_right")),
+            (0x02, L.string("cec.step_down")),
+            (0x00, L.string("cec.step_confirm"))
         ]
 
         for (code, name) in openBrightness {

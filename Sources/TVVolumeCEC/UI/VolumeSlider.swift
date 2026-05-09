@@ -5,11 +5,11 @@ final class VolumeSlider: NSSlider {
 
     override func mouseDown(with event: NSEvent) {
         onDrag?()
-        let monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDragged) { [weak self] _ in
+        let monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDragged) { [weak self] e in
             self?.onDrag?()
-            return event
-        } as Any
+            return e
+        }
         super.mouseDown(with: event)
-        NSEvent.removeMonitor(monitor)
+        if let monitor { NSEvent.removeMonitor(monitor) }
     }
 }

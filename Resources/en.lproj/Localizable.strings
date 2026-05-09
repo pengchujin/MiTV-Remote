@@ -76,7 +76,10 @@
 "brightness.osd_still_open" = "OSD menu still open, sent %@ brightness key only.";
 
 /* CEC */
-"cec.check_failed" = "CEC %@ failed.\n\n%@";
+"cec.step_menu" = "Menu";
+"cec.step_right" = "Right";
+"cec.step_down" = "Down";
+"cec.step_confirm" = "Confirm";
 "cec.down_reset_failed" = "CEC down key reset failed.\n\n%@";
 "cec.up_brightness_failed" = "CEC up key brightness failed.\n\n%@";
 "cec.brightness_sequence_sent" = "Sent CEC brightness sequence via Apple private IOCEC: Menu, Right, Down, Confirm, Up/Down.";

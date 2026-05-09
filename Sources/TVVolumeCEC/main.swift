@@ -91,7 +91,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         slider.isContinuous = false
         slider.numberOfTickMarks = 5
         slider.allowsTickMarkValuesOnly = false
-        slider.onDrag = { [weak self] in
+        slider.onDrag = { [weak self, weak slider] in
+            guard let slider else { return }
             let percent = Int(slider.doubleValue.rounded())
             self?.updateVolumeUI(percent)
         }

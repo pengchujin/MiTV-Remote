@@ -120,7 +120,7 @@ final class MiTVController {
         if signedResult.isSuccess { return signedResult }
         let delta = targetVolume - status.volume
         guard delta != 0 else {
-            return CECResult(isSuccess: true, message: L.string("status.volume_already", "\(clamped)%"))
+            return CECResult(isSuccess: true, message: L.string("status.volume_already", "\(clamped)"))
         }
         let keyCode = delta > 0 ? "volumeup" : "volumedown"
         for _ in 0..<abs(delta) {
@@ -128,7 +128,7 @@ final class MiTVController {
             if !result.isSuccess { return result }
             try? await Task.sleep(nanoseconds: 45_000_000)
         }
-        return CECResult(isSuccess: true, message: L.string("status.fallback_used", "\(clamped)%", signedResult.message))
+        return CECResult(isSuccess: true, message: L.string("status.fallback_used", "\(clamped)", signedResult.message))
     }
 
     func setVolumePercentImmediate(_ percent: Int) async -> CECResult {
