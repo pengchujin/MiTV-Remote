@@ -1,0 +1,88 @@
+/* Menu */
+"menu.tv_volume" = "TV Volume";
+"menu.search_device" = "Search/Switch Device";
+"menu.quit" = "Quit";
+
+/* Status labels */
+"status.volume" = "Volume: %@";
+"status.volume_placeholder" = "Volume: --%%";
+"status.brightness" = "Brightness: %@";
+"status.brightness_placeholder" = "Brightness: --%%";
+"status.device_ip" = "Device IP: %@";
+"status.device_name" = "Device Name: %@";
+
+/* Button tooltips */
+"tooltip.hdmi1" = "Switch HDMI 1";
+"tooltip.hdmi2" = "Switch HDMI 2";
+"tooltip.power" = "Power";
+"tooltip.volume_down" = "Volume Down";
+"tooltip.volume_up" = "Volume Up";
+"tooltip.up" = "Up";
+"tooltip.down" = "Down";
+"tooltip.left" = "Left";
+"tooltip.right" = "Right";
+"tooltip.confirm" = "Confirm";
+"tooltip.home" = "Home";
+"tooltip.back" = "Back";
+"tooltip.menu" = "Menu";
+
+/* Alert titles */
+"alert.connected" = "MiTV Connected";
+"alert.connection_failed" = "MiTV Connection Failed";
+"alert.search_failed" = "Device Search Failed";
+"alert.active_source_sent" = "Active Source Sent";
+"alert.active_source_failed" = "Active Source Failed";
+"alert.cec_failed" = "CEC Command Failed";
+"alert.remote_failed" = "Remote Command Failed";
+"alert.hdmi_failed" = "HDMI Switch Failed";
+"alert.volume_failed" = "Volume Set Failed";
+"alert.brightness_failed" = "Brightness Set Failed";
+"alert.ok" = "OK";
+
+/* Device picker */
+"picker.no_device" = "No Devices Found";
+"picker.no_device_message" = "No Xiaomi/Redmi devices found on the local network (port 6095).";
+"picker.select_device" = "Select Device";
+"picker.found_devices" = "Found %@ Xiaomi/Redmi device(s).";
+"picker.use" = "Use";
+"picker.cancel" = "Cancel";
+"picker.switched" = "Device Switched";
+"picker.current_target" = "Current target: %@";
+
+/* Device status */
+"status.connected" = "Connected to MiTV: %@";
+"status.no_volume_format" = "MiTV volume format unrecognized.\n\n%@";
+"status.no_systeminfo_format" = "MiTV system info format unrecognized.\n\n%@";
+"status.volume_already" = "Volume is already %@%%.";
+"status.fallback_used" = "Signed volume API unavailable, set to ~%@%% via remote keys.\n\n%@";
+"status.signed_volume_set" = "Volume set to %@ via signed setVolum API.";
+"status.signed_api_unavailable" = "The signed setVolum API is unavailable on this device, falling back to remote keys.\n\nRequest path: %@\nResponse: %@";
+"status.no_mac" = "Cannot read MiTV MAC, cannot generate setVolum signature.";
+"status.cannot_read_volume" = "Cannot read current volume.";
+"status.no_lan_ip" = "No LAN IPv4 addresses found for scanning.";
+"status.invalid_address" = "Invalid MiTV address: %@";
+"status.no_response" = "MiTV returned no content.";
+"status.cannot_connect" = "Cannot connect to MiTV Wi-Fi: %@:%@\n\nUsing default discovered address 192.168.1.50.\nIf TV IP changed, set via environment variable:\nTV_VOLUME_MITV_HOST=TV_IP ./script/build_and_run.sh\n\n%@";
+"status.key_sent" = "Sent via MiTV Wi-Fi: %@";
+"status.source_switched" = "Switched to %@ via MiTV Wi-Fi";
+"status.no_cec_keycode" = "MiTV port 6095 has no available mute keycode. Volume up/down uses Wi-Fi.";
+
+/* Brightness */
+"brightness.m1ddc_read_failed" = "Found m1ddc, but couldn't read brightness.\n\n%@";
+"brightness.ddcctl_read_failed" = "Found ddcctl, but couldn't read brightness.\n\n%@";
+"brightness.increase" = "Increase";
+"brightness.decrease" = "Decrease";
+"brightness.opened_menu" = "Opened Xiaomi/Redmi brightness menu and %@d brightness. OSD menu will auto-dismiss in ~10s.";
+"brightness.osd_still_open" = "OSD menu still open, sent %@ brightness key only.";
+
+/* CEC */
+"cec.step_menu" = "Menu";
+"cec.step_right" = "Right";
+"cec.step_down" = "Down";
+"cec.step_confirm" = "Confirm";
+"cec.down_reset_failed" = "CEC down key reset failed.\n\n%@";
+"cec.up_brightness_failed" = "CEC up key brightness failed.\n\n%@";
+"cec.brightness_sequence_sent" = "Sent CEC brightness sequence via Apple private IOCEC: Menu, Right, Down, Confirm, Up/Down.";
+"cec.no_details" = "Apple private IOCEC returned no details.";
+"cec.exec_failed" = "%@ failed.\n\n%@";
+"cec.cannot_start" = "%@ failed to start: %@";

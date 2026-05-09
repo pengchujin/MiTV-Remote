@@ -29,6 +29,12 @@ mkdir -p "$APP_MACOS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
 
+# Copy localization resources
+RESOURCES_DIR="$ROOT_DIR/Resources"
+if [ -d "$RESOURCES_DIR" ]; then
+  cp -R "$RESOURCES_DIR"/*.lproj "$APP_RESOURCES/"
+fi
+
 cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

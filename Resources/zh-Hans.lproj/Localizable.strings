@@ -1,0 +1,88 @@
+/* Menu */
+"menu.tv_volume" = "电视音量";
+"menu.search_device" = "搜索/切换设备";
+"menu.quit" = "退出";
+
+/* Status labels */
+"status.volume" = "当前音量：%@";
+"status.volume_placeholder" = "当前音量：--%%";
+"status.brightness" = "当前亮度：%@";
+"status.brightness_placeholder" = "当前亮度：--%%";
+"status.device_ip" = "设备 IP：%@";
+"status.device_name" = "设备名：%@";
+
+/* Button tooltips */
+"tooltip.hdmi1" = "切换 HDMI 1";
+"tooltip.hdmi2" = "切换 HDMI 2";
+"tooltip.power" = "电源";
+"tooltip.volume_down" = "音量减";
+"tooltip.volume_up" = "音量加";
+"tooltip.up" = "上";
+"tooltip.down" = "下";
+"tooltip.left" = "左";
+"tooltip.right" = "右";
+"tooltip.confirm" = "确认";
+"tooltip.home" = "主页";
+"tooltip.back" = "返回";
+"tooltip.menu" = "菜单";
+
+/* Alert titles */
+"alert.connected" = "小米电视已连接";
+"alert.connection_failed" = "小米电视连接失败";
+"alert.search_failed" = "搜索设备失败";
+"alert.active_source_sent" = "已发送信号源命令";
+"alert.active_source_failed" = "信号源命令失败";
+"alert.cec_failed" = "CEC 命令失败";
+"alert.remote_failed" = "遥控器命令失败";
+"alert.hdmi_failed" = "HDMI 切换失败";
+"alert.volume_failed" = "设置音量失败";
+"alert.brightness_failed" = "设置亮度失败";
+"alert.ok" = "OK";
+
+/* Device picker */
+"picker.no_device" = "未找到设备";
+"picker.no_device_message" = "没有在当前局域网发现 6095 端口的小米/Redmi 设备。";
+"picker.select_device" = "选择设备";
+"picker.found_devices" = "找到 %@ 台小米/Redmi 设备。";
+"picker.use" = "使用";
+"picker.cancel" = "取消";
+"picker.switched" = "已切换设备";
+"picker.current_target" = "当前控制目标：%@";
+
+/* Device status */
+"status.connected" = "已连接到小米电视：%@";
+"status.no_volume_format" = "小米电视返回的音量格式无法识别。\n\n%@";
+"status.no_systeminfo_format" = "小米电视返回的系统信息格式无法识别。\n\n%@";
+"status.volume_already" = "音量已经是 %@%%。";
+"status.fallback_used" = "签名音量接口不可用，已用遥控按键设置到约 %@%%。\n\n%@";
+"status.signed_volume_set" = "已通过 setVolum 签名接口设置音量：%@。";
+"status.signed_api_unavailable" = "文章里的 setVolum 签名接口在当前设备上不可用，已回退到遥控按键方式。\n\n请求路径：%@\n返回：%@";
+"status.no_mac" = "无法读取小米设备 MAC，不能生成 setVolum 签名。";
+"status.cannot_read_volume" = "无法读取当前音量。";
+"status.no_lan_ip" = "没有找到可用于扫描的局域网 IPv4 地址。";
+"status.invalid_address" = "小米电视地址无效：%@";
+"status.no_response" = "小米电视没有返回内容。";
+"status.cannot_connect" = "无法连接小米电视 Wi-Fi 接口：%@:%@\n\n目前默认使用本机发现到的 mitv-mffu1 地址 192.168.1.50。\n如果电视 IP 变了，可以用环境变量指定：\nTV_VOLUME_MITV_HOST=电视IP ./script/build_and_run.sh\n\n%@";
+"status.key_sent" = "已通过小米电视 Wi-Fi 接口发送：%@";
+"status.source_switched" = "已通过小米电视 Wi-Fi 接口切换到 %@";
+"status.no_cec_keycode" = "小米电视 6095 接口没有发现可用的静音 keycode。音量增大/减小已走 Wi-Fi 接口。";
+
+/* Brightness */
+"brightness.m1ddc_read_failed" = "已找到 m1ddc，但没有读到当前亮度。\n\n%@";
+"brightness.ddcctl_read_failed" = "已找到 ddcctl，但没有读到当前亮度。\n\n%@";
+"brightness.increase" = "提高";
+"brightness.decrease" = "降低";
+"brightness.opened_menu" = "已打开小米/Redmi 显示器亮度菜单并%@亮度。OSD 菜单会在约 10 秒后自动消失。";
+"brightness.osd_still_open" = "OSD 菜单仍打开，只发送了%@亮度按键。";
+
+/* CEC */
+"cec.step_menu" = "菜单";
+"cec.step_right" = "右键";
+"cec.step_down" = "下键";
+"cec.step_confirm" = "确认";
+"cec.down_reset_failed" = "CEC 下键归零失败。\n\n%@";
+"cec.up_brightness_failed" = "CEC 上键调亮失败。\n\n%@";
+"cec.brightness_sequence_sent" = "已通过 Apple 私有 IOCEC 发送 CEC 菜单亮度序列：菜单、右键、下键、确认、上下键。";
+"cec.no_details" = "Apple 私有 IOCEC 没有返回详细信息。";
+"cec.exec_failed" = "%@ 执行失败。\n\n%@";
+"cec.cannot_start" = "%@ 无法启动：%@";

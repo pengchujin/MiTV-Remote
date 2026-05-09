@@ -1,26 +1,4 @@
 import AppKit
-import CECPrivateBridge
-import CryptoKit
-import Darwin
-
-private final class RemoteControlView: NSView {
-    var onKeyDown: ((NSEvent) -> NSEvent?)?
-
-    override var acceptsFirstResponder: Bool {
-        true
-    }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        window?.makeFirstResponder(self)
-    }
-
-    override func keyDown(with event: NSEvent) {
-        if let forwarded = onKeyDown?(event) {
-            super.keyDown(with: forwarded)
-        }
-    }
-}
 
 private final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
@@ -50,13 +28,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem = item
-
         if let button = item.button {
             button.image = remoteStatusIcon()
             button.image?.isTemplate = true
             button.toolTip = "MiTV Remote"
         }
-
         item.menu = makeMenu()
         updateStatusUI(deviceName: nil)
         refreshVolume()
@@ -64,85 +40,83 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         refreshDeviceStatus()
     }
 
+    // MARK: - Menu
+
     private func makeMenu() -> NSMenu {
         let menu = NSMenu()
-
-        let title = NSMenuItem(title: "电视音量", action: nil, keyEquivalent: "")
+        let title = NSMenuItem(title: L.string("menu.tv_volume"), action: nil, keyEquivalent: "")
         title.isEnabled = false
         menu.addItem(title)
         menu.addItem(.separator())
-
         let controls = NSMenuItem()
         controls.view = makeControlsView()
         menu.addItem(controls)
         menu.addItem(.separator())
-
-        menu.addItem(menuItem("搜索/切换设备", symbol: "magnifyingglass", key: "s", action: #selector(searchAndSwitchDevice)))
-        menu.addItem(menuItem("退出", symbol: "power", key: "q", action: #selector(quit)))
-
+        menu.addItem(menuItem(L.string("menu.search_device"), symbol: "magnifyingglass", key: "s", action: #selector(searchAndSwitchDevice)))
+        menu.addItem(menuItem(L.string("menu.quit"), symbol: "power", key: "q", action: #selector(quit)))
         return menu
     }
 
     private func remoteStatusIcon() -> NSImage {
         let image = NSImage(size: NSSize(width: 18, height: 18))
         image.lockFocus()
-
         NSColor.labelColor.setStroke()
         NSColor.labelColor.setFill()
-
         let body = NSBezierPath(roundedRect: NSRect(x: 5, y: 2, width: 8, height: 14), xRadius: 3, yRadius: 3)
         body.lineWidth = 1.6
         body.stroke()
-
         NSBezierPath(ovalIn: NSRect(x: 7.2, y: 11, width: 3.6, height: 3.6)).fill()
         NSBezierPath(ovalIn: NSRect(x: 7.7, y: 7.2, width: 2.6, height: 2.6)).fill()
         NSBezierPath(ovalIn: NSRect(x: 7.7, y: 4.2, width: 2.6, height: 2.6)).fill()
-
         image.unlockFocus()
         image.isTemplate = true
         return image
     }
 
+    // MARK: - Controls View
+
     private func makeControlsView() -> NSView {
         let view = RemoteControlView(frame: NSRect(x: 0, y: 0, width: 240, height: 326))
-        view.onKeyDown = { [weak self] event in
-            self?.handleKeyDown(event) ?? event
-        }
+        view.onKeyDown = { [weak self] event in self?.handleKeyDown(event) ?? event }
         remoteControlView = view
 
-        let label = NSTextField(labelWithString: "当前音量：--%")
+        let label = NSTextField(labelWithString: L.string("status.volume_placeholder"))
         label.frame = NSRect(x: 16, y: 298, width: 208, height: 18)
         label.font = .systemFont(ofSize: 13, weight: .medium)
         view.addSubview(label)
         volumeLabel = label
 
-        let slider = NSSlider(value: 50, minValue: 0, maxValue: 100, target: self, action: #selector(volumeSliderChanged(_:)))
+        let slider = VolumeSlider(value: 50, minValue: 0, maxValue: 100, target: self, action: #selector(volumeSliderChanged(_:)))
         slider.frame = NSRect(x: 12, y: 268, width: 216, height: 28)
         slider.isContinuous = false
         slider.numberOfTickMarks = 5
         slider.allowsTickMarkValuesOnly = false
+        slider.onDrag = { [weak self, weak slider] in
+            guard let slider else { return }
+            let percent = Int(slider.doubleValue.rounded())
+            self?.updateVolumeUI(percent)
+        }
         view.addSubview(slider)
         volumeSlider = slider
 
-        addRemoteButton(to: view, title: "HDMI 1", frame: NSRect(x: 18, y: 228, width: 94, height: 30), action: #selector(switchHDMI1), label: "切换 HDMI 1")
-        addRemoteButton(to: view, title: "HDMI 2", frame: NSRect(x: 128, y: 228, width: 94, height: 30), action: #selector(switchHDMI2), label: "切换 HDMI 2")
-        addRemoteButton(to: view, symbol: "power", frame: NSRect(x: 18, y: 190, width: 44, height: 32), action: #selector(remotePower), label: "电源")
-        addRemoteButton(to: view, symbol: "speaker.minus.fill", frame: NSRect(x: 98, y: 190, width: 44, height: 32), action: #selector(remoteVolumeDown), label: "音量减")
-        addRemoteButton(to: view, symbol: "speaker.plus.fill", frame: NSRect(x: 178, y: 190, width: 44, height: 32), action: #selector(remoteVolumeUp), label: "音量加")
+        addRemoteButton(to: view, title: "HDMI 1", frame: NSRect(x: 18, y: 228, width: 94, height: 30), action: #selector(switchHDMI1), label: L.string("tooltip.hdmi1"))
+        addRemoteButton(to: view, title: "HDMI 2", frame: NSRect(x: 128, y: 228, width: 94, height: 30), action: #selector(switchHDMI2), label: L.string("tooltip.hdmi2"))
+        addRemoteButton(to: view, symbol: "power", frame: NSRect(x: 18, y: 190, width: 44, height: 32), action: #selector(remotePower), label: L.string("tooltip.power"))
+        addRemoteButton(to: view, symbol: "speaker.minus.fill", frame: NSRect(x: 98, y: 190, width: 44, height: 32), action: #selector(remoteVolumeDown), label: L.string("tooltip.volume_down"))
+        addRemoteButton(to: view, symbol: "speaker.plus.fill", frame: NSRect(x: 178, y: 190, width: 44, height: 32), action: #selector(remoteVolumeUp), label: L.string("tooltip.volume_up"))
 
-        addRemoteButton(to: view, symbol: "chevron.up", frame: NSRect(x: 102, y: 158, width: 36, height: 28), action: #selector(remoteUp), label: "上")
-        addRemoteButton(to: view, symbol: "chevron.left", frame: NSRect(x: 54, y: 122, width: 36, height: 28), action: #selector(remoteLeft), label: "左")
-        addRemoteButton(to: view, title: "OK", frame: NSRect(x: 100, y: 118, width: 40, height: 36), action: #selector(remoteOK), label: "确认")
-        addRemoteButton(to: view, symbol: "chevron.right", frame: NSRect(x: 150, y: 122, width: 36, height: 28), action: #selector(remoteRight), label: "右")
-        addRemoteButton(to: view, symbol: "chevron.down", frame: NSRect(x: 102, y: 84, width: 36, height: 28), action: #selector(remoteDown), label: "下")
+        addRemoteButton(to: view, symbol: "chevron.up", frame: NSRect(x: 102, y: 158, width: 36, height: 28), action: #selector(remoteUp), label: L.string("tooltip.up"))
+        addRemoteButton(to: view, symbol: "chevron.left", frame: NSRect(x: 54, y: 122, width: 36, height: 28), action: #selector(remoteLeft), label: L.string("tooltip.left"))
+        addRemoteButton(to: view, title: "OK", frame: NSRect(x: 100, y: 118, width: 40, height: 36), action: #selector(remoteOK), label: L.string("tooltip.confirm"))
+        addRemoteButton(to: view, symbol: "chevron.right", frame: NSRect(x: 150, y: 122, width: 36, height: 28), action: #selector(remoteRight), label: L.string("tooltip.right"))
+        addRemoteButton(to: view, symbol: "chevron.down", frame: NSRect(x: 102, y: 84, width: 36, height: 28), action: #selector(remoteDown), label: L.string("tooltip.down"))
 
-        addRemoteButton(to: view, symbol: "house", frame: NSRect(x: 18, y: 54, width: 44, height: 30), action: #selector(remoteHome), label: "主页")
-        addRemoteButton(to: view, symbol: "arrow.uturn.backward", frame: NSRect(x: 88, y: 54, width: 64, height: 30), action: #selector(remoteBack), label: "返回")
-        addRemoteButton(to: view, symbol: "line.3.horizontal", frame: NSRect(x: 178, y: 54, width: 44, height: 30), action: #selector(remoteMenu), label: "菜单")
+        addRemoteButton(to: view, symbol: "house", frame: NSRect(x: 18, y: 54, width: 44, height: 30), action: #selector(remoteHome), label: L.string("tooltip.home"))
+        addRemoteButton(to: view, symbol: "arrow.uturn.backward", frame: NSRect(x: 88, y: 54, width: 64, height: 30), action: #selector(remoteBack), label: L.string("tooltip.back"))
+        addRemoteButton(to: view, symbol: "line.3.horizontal", frame: NSRect(x: 178, y: 54, width: 44, height: 30), action: #selector(remoteMenu), label: L.string("tooltip.menu"))
 
         deviceIPLabel = addStatusLabel(to: view, frame: NSRect(x: 14, y: 32, width: 212, height: 14))
         deviceNameLabel = addStatusLabel(to: view, frame: NSRect(x: 14, y: 17, width: 212, height: 14))
-
         return view
     }
 
@@ -180,55 +154,43 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         return item
     }
 
+    // MARK: - Keyboard
+
     private func handleKeyDown(_ event: NSEvent) -> NSEvent? {
         let key: String?
         switch event.keyCode {
-        case 123:
-            key = "left"
-        case 124:
-            key = "right"
-        case 125:
-            key = "down"
-        case 126:
-            key = "up"
-        default:
-            key = nil
+        case 123: key = "left"
+        case 124: key = "right"
+        case 125: key = "down"
+        case 126: key = "up"
+        case 36:  key = "enter"     // Return → OK
+        case 76:  key = "enter"     // Enter (numpad) → OK
+        case 51:  key = "back"      // Delete → Back
+        default:  key = nil
         }
-
-        guard let key else {
-            return event
-        }
-
+        guard let key else { return event }
         sendRemoteKey(key)
         return nil
     }
 
-    @objc private func volumeUp() {
-        run(.volumeUp)
-    }
+    // MARK: - Actions
 
-    @objc private func volumeDown() {
-        run(.volumeDown)
-    }
+    @objc private func volumeUp() { run(.volumeUp) }
+    @objc private func volumeDown() { run(.volumeDown) }
 
     @objc private func volumeSliderChanged(_ sender: NSSlider) {
         let target = Int(sender.doubleValue.rounded())
         setVolumePercent(target)
     }
 
-    @objc private func brightnessUp() {
-        adjustBrightness(.up)
-    }
-
-    @objc private func brightnessDown() {
-        adjustBrightness(.down)
-    }
+    @objc private func brightnessUp() { adjustBrightness(.up) }
+    @objc private func brightnessDown() { adjustBrightness(.down) }
 
     @objc private func checkConnection() {
         Task {
             let result = await cec.checkAvailability()
             await MainActor.run {
-                showResult(title: result.isSuccess ? "小米电视已连接" : "小米电视连接失败", result: result)
+                showResult(title: result.isSuccess ? L.string("alert.connected") : L.string("alert.connection_failed"), result: result)
             }
         }
     }
@@ -238,10 +200,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             let result = await cec.discoverDevices()
             await MainActor.run {
                 switch result {
-                case .success(let devices):
-                    presentDevicePicker(devices)
-                case .failure(let failure):
-                    showResult(title: "搜索设备失败", result: failure)
+                case .success(let devices): presentDevicePicker(devices)
+                case .failure(let failure): showResult(title: L.string("alert.search_failed"), result: failure)
                 }
             }
         }
@@ -251,76 +211,35 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             let result = await cec.becomeActiveSource()
             await MainActor.run {
-                showResult(title: result.isSuccess ? "已发送信号源命令" : "信号源命令失败", result: result)
+                showResult(title: result.isSuccess ? L.string("alert.active_source_sent") : L.string("alert.active_source_failed"), result: result)
             }
         }
     }
 
-    @objc private func quit() {
-        NSApp.terminate(nil)
-    }
+    @objc private func quit() { NSApp.terminate(nil) }
 
-    @objc private func remotePower() {
-        sendRemoteKey("power")
-    }
+    @objc private func remotePower() { sendRemoteKey("power") }
+    @objc private func remoteVolumeDown() { sendRemoteKey("volumedown") }
+    @objc private func remoteVolumeUp() { sendRemoteKey("volumeup") }
+    @objc private func remoteUp() { sendRemoteKey("up") }
+    @objc private func remoteDown() { sendRemoteKey("down") }
+    @objc private func remoteLeft() { sendRemoteKey("left") }
+    @objc private func remoteRight() { sendRemoteKey("right") }
+    @objc private func remoteOK() { sendRemoteKey("enter") }
+    @objc private func remoteHome() { sendRemoteKey("home") }
+    @objc private func remoteBack() { sendRemoteKey("back") }
+    @objc private func remoteMenu() { sendRemoteKey("menu") }
+    @objc private func switchHDMI1() { switchHDMIInput(1) }
+    @objc private func switchHDMI2() { switchHDMIInput(2) }
 
-    @objc private func remoteVolumeDown() {
-        sendRemoteKey("volumedown")
-    }
-
-    @objc private func remoteVolumeUp() {
-        sendRemoteKey("volumeup")
-    }
-
-    @objc private func remoteUp() {
-        sendRemoteKey("up")
-    }
-
-    @objc private func remoteDown() {
-        sendRemoteKey("down")
-    }
-
-    @objc private func remoteLeft() {
-        sendRemoteKey("left")
-    }
-
-    @objc private func remoteRight() {
-        sendRemoteKey("right")
-    }
-
-    @objc private func remoteOK() {
-        sendRemoteKey("enter")
-    }
-
-    @objc private func remoteHome() {
-        sendRemoteKey("home")
-    }
-
-    @objc private func remoteBack() {
-        sendRemoteKey("back")
-    }
-
-    @objc private func remoteMenu() {
-        sendRemoteKey("menu")
-    }
-
-    @objc private func switchHDMI1() {
-        switchHDMIInput(1)
-    }
-
-    @objc private func switchHDMI2() {
-        switchHDMIInput(2)
-    }
+    // MARK: - Remote Commands
 
     private func run(_ command: CECCommand) {
         Task {
             let result = await cec.send(command)
             await MainActor.run {
-                if !result.isSuccess {
-                    showResult(title: "CEC Command Failed", result: result)
-                } else {
-                    refreshVolume()
-                }
+                if !result.isSuccess { showResult(title: L.string("alert.cec_failed"), result: result) }
+                else { refreshVolume() }
             }
         }
     }
@@ -329,11 +248,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             let result = await cec.sendRemoteKey(key)
             await MainActor.run {
-                if !result.isSuccess {
-                    showResult(title: "遥控器命令失败", result: result)
-                } else if key == "volumeup" || key == "volumedown" {
-                    refreshVolume()
-                }
+                if !result.isSuccess { showResult(title: L.string("alert.remote_failed"), result: result) }
+                else if key == "volumeup" || key == "volumedown" { refreshVolume() }
             }
         }
     }
@@ -342,22 +258,20 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             let result = await cec.switchHDMIInput(input)
             await MainActor.run {
-                if !result.isSuccess {
-                    showResult(title: "HDMI 切换失败", result: result)
-                }
+                if !result.isSuccess { showResult(title: L.string("alert.hdmi_failed"), result: result) }
             }
         }
     }
+
+    // MARK: - Refresh
 
     private func refreshDeviceStatus() {
         Task {
             let status = await cec.deviceStatus()
             await MainActor.run {
                 switch status {
-                case .success(let device):
-                    updateStatusUI(deviceName: device.name)
-                case .failure:
-                    updateStatusUI(deviceName: nil)
+                case .success(let device): updateStatusUI(deviceName: device.name)
+                case .failure: updateStatusUI(deviceName: nil)
                 }
             }
         }
@@ -368,10 +282,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             let status = await cec.volumeStatus()
             await MainActor.run {
                 switch status {
-                case .success(let volume):
-                    updateVolumeUI(volume.percent)
-                case .failure:
-                    volumeLabel?.stringValue = "当前音量：--%"
+                case .success(let volume): updateVolumeUI(volume.percent)
+                case .failure: volumeLabel?.stringValue = L.string("status.volume_placeholder")
                 }
             }
         }
@@ -382,10 +294,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             let status = await brightness.brightnessStatus()
             await MainActor.run {
                 switch status {
-                case .success(let percent):
-                    updateBrightnessUI(percent)
-                case .failure:
-                    brightnessLabel?.stringValue = "当前亮度：--%"
+                case .success(let percent): updateBrightnessUI(percent)
+                case .failure: brightnessLabel?.stringValue = L.string("status.brightness_placeholder")
                 }
             }
         }
@@ -394,11 +304,9 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setVolumePercent(_ percent: Int) {
         updateVolumeUI(percent)
         Task {
-            let result = await cec.setVolumePercent(percent)
+            let result = await cec.setVolumePercentImmediate(percent)
             await MainActor.run {
-                if !result.isSuccess {
-                    showResult(title: "设置音量失败", result: result)
-                }
+                if !result.isSuccess { showResult(title: L.string("alert.volume_failed"), result: result) }
                 refreshVolume()
             }
         }
@@ -411,7 +319,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             let result = await brightness.adjustBrightness(direction)
             await MainActor.run {
                 if !result.isSuccess {
-                    showResult(title: "设置亮度失败", result: result)
+                    showResult(title: L.string("alert.brightness_failed"), result: result)
                     refreshBrightness()
                 }
             }
@@ -420,21 +328,21 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func updateVolumeUI(_ percent: Int) {
         let clamped = min(100, max(0, percent))
-        volumeLabel?.stringValue = "当前音量：\(clamped)%"
+        volumeLabel?.stringValue = L.string("status.volume", "\(clamped)%")
         volumeSlider?.integerValue = clamped
     }
 
     private func updateBrightnessUI(_ percent: Int) {
         let clamped = min(100, max(0, percent))
         brightnessPercent = clamped
-        brightnessLabel?.stringValue = "当前亮度：\(clamped)%"
+        brightnessLabel?.stringValue = L.string("status.brightness", "\(clamped)%")
     }
 
     private func updateStatusUI(deviceName: String?) {
         let host = cec.currentHost
         let name = deviceName ?? UserDefaults.standard.string(forKey: "MiTVDeviceName")
-        deviceIPLabel?.stringValue = "设备 IP：\(host)"
-        deviceNameLabel?.stringValue = "设备名：\(name?.isEmpty == false ? name! : "--")"
+        deviceIPLabel?.stringValue = L.string("status.device_ip", host)
+        deviceNameLabel?.stringValue = L.string("status.device_name", name?.isEmpty == false ? name! : "--")
     }
 
     private func showResult(title: String, result: CECResult) {
@@ -442,785 +350,35 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.messageText = title
         alert.informativeText = result.message
         alert.alertStyle = result.isSuccess ? .informational : .warning
-        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: L.string("alert.ok"))
         alert.runModal()
     }
 
     private func presentDevicePicker(_ devices: [MiTVDevice]) {
         guard !devices.isEmpty else {
-            showResult(
-                title: "未找到设备",
-                result: CECResult(isSuccess: false, message: "没有在当前局域网发现 6095 端口的小米/Redmi 设备。")
-            )
+            showResult(title: L.string("picker.no_device"), result: CECResult(isSuccess: false, message: L.string("picker.no_device_message")))
             return
         }
-
         let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 320, height: 28), pullsDown: false)
         for device in devices {
             let item = NSMenuItem(title: "\(device.name)  \(device.host)", action: nil, keyEquivalent: "")
             item.representedObject = device.host
             popup.menu?.addItem(item)
         }
-
         let alert = NSAlert()
-        alert.messageText = "选择设备"
-        alert.informativeText = "找到 \(devices.count) 台小米/Redmi 设备。"
+        alert.messageText = L.string("picker.select_device")
+        alert.informativeText = L.string("picker.found_devices", "\(devices.count)")
         alert.accessoryView = popup
-        alert.addButton(withTitle: "使用")
-        alert.addButton(withTitle: "取消")
-
-        guard alert.runModal() == .alertFirstButtonReturn,
-              let host = popup.selectedItem?.representedObject as? String
-        else {
-            return
-        }
-
+        alert.addButton(withTitle: L.string("picker.use"))
+        alert.addButton(withTitle: L.string("picker.cancel"))
+        guard alert.runModal() == .alertFirstButtonReturn, let host = popup.selectedItem?.representedObject as? String else { return }
         cec.setDeviceHost(host)
         if let device = devices.first(where: { $0.host == host }) {
             UserDefaults.standard.set(device.name, forKey: "MiTVDeviceName")
         }
         refreshVolume()
         refreshDeviceStatus()
-        showResult(
-            title: "已切换设备",
-            result: CECResult(isSuccess: true, message: "当前控制目标：\(host)")
-        )
-    }
-}
-
-private enum CECCommand {
-    case volumeUp
-    case volumeDown
-
-    var miTVKeyCode: String? {
-        switch self {
-        case .volumeUp:
-            return "volumeup"
-        case .volumeDown:
-            return "volumedown"
-        }
-    }
-
-    var userControlCode: UInt8 {
-        switch self {
-        case .volumeUp:
-            return 0x41
-        case .volumeDown:
-            return 0x42
-        }
-    }
-}
-
-private struct CECResult: Error {
-    let isSuccess: Bool
-    let message: String
-}
-
-private struct VolumeStatus {
-    let volume: Int
-    let maxVolume: Int
-
-    var percent: Int {
-        guard maxVolume > 0 else {
-            return 0
-        }
-        return Int((Double(volume) / Double(maxVolume) * 100).rounded())
-    }
-}
-
-private struct MiTVSystemInfo {
-    let wifiMAC: String?
-    let ethernetMAC: String?
-
-    var signingMAC: String? {
-        (ethernetMAC ?? wifiMAC)?
-            .replacingOccurrences(of: ":", with: "")
-            .lowercased()
-    }
-}
-
-private struct MiTVDevice {
-    let name: String
-    let host: String
-}
-
-private enum BrightnessDirection {
-    case up
-    case down
-
-    var remoteKey: String {
-        switch self {
-        case .up:
-            return "up"
-        case .down:
-            return "down"
-        }
-    }
-
-    var percentDelta: Int {
-        switch self {
-        case .up:
-            return 1
-        case .down:
-            return -1
-        }
-    }
-
-    var displayName: String {
-        switch self {
-        case .up:
-            return "提高"
-        case .down:
-            return "降低"
-        }
-    }
-}
-
-private final class CECController {
-    private let miTV = MiTVController()
-
-    var currentHost: String {
-        miTV.currentHost
-    }
-
-    func send(_ command: CECCommand) async -> CECResult {
-        if let keyCode = command.miTVKeyCode {
-            return await miTV.sendKey(keyCode)
-        }
-
-        return CECResult(isSuccess: false, message: "小米电视 6095 接口没有发现可用的静音 keycode。音量增大/减小已走 Wi-Fi 接口。")
-    }
-
-    func checkAvailability() async -> CECResult {
-        await miTV.checkAvailability()
-    }
-
-    func becomeActiveSource() async -> CECResult {
-        await miTV.sendKey("menu")
-    }
-
-    func volumeStatus() async -> Result<VolumeStatus, CECResult> {
-        await miTV.volumeStatus()
-    }
-
-    func setVolumePercent(_ percent: Int) async -> CECResult {
-        await miTV.setVolumePercent(percent)
-    }
-
-    func setVolumePercentViaSetVolumOnly(_ percent: Int) async -> CECResult {
-        await miTV.setVolumePercentViaSetVolumOnly(percent)
-    }
-
-    func sendRemoteKey(_ key: String) async -> CECResult {
-        await miTV.sendKey(key)
-    }
-
-    func switchHDMIInput(_ input: Int) async -> CECResult {
-        await miTV.switchHDMIInput(input)
-    }
-
-    func discoverDevices() async -> Result<[MiTVDevice], CECResult> {
-        await miTV.discoverDevices()
-    }
-
-    func setDeviceHost(_ host: String) {
-        miTV.setHost(host)
-    }
-
-    func deviceStatus() async -> Result<MiTVDevice, CECResult> {
-        await miTV.deviceStatus()
-    }
-
-    func setBrightnessPercentViaCECMenu(_ percent: Int) async -> CECResult {
-        let clamped = min(100, max(0, percent))
-        let openBrightness: [(UInt8, String)] = [
-            (0x09, "菜单"),
-            (0x04, "右键"),
-            (0x02, "下键"),
-            (0x00, "确认")
-        ]
-
-        for (code, name) in openBrightness {
-            let result = await runPrivateCEC(code)
-            guard result.isSuccess else {
-                return CECResult(isSuccess: false, message: "CEC \(name) 失败。\n\n\(result.message)")
-            }
-            await sleepForCECStep()
-        }
-
-        for _ in 0..<100 {
-            let result = await runPrivateCEC(0x02)
-            guard result.isSuccess else {
-                return CECResult(isSuccess: false, message: "CEC 下键归零失败。\n\n\(result.message)")
-            }
-            await sleepForCECStep()
-        }
-
-        for _ in 0..<clamped {
-            let result = await runPrivateCEC(0x01)
-            guard result.isSuccess else {
-                return CECResult(isSuccess: false, message: "CEC 上键调亮失败。\n\n\(result.message)")
-            }
-            await sleepForCECStep()
-        }
-
-        for _ in 0..<2 {
-            _ = await runPrivateCEC(0x0D)
-            await sleepForCECStep()
-        }
-
-        return CECResult(
-            isSuccess: true,
-            message: "已通过 Apple 私有 IOCEC 发送 CEC 菜单亮度序列：菜单、右键、下键、确认、上下键。"
-        )
-    }
-
-    func becomeActiveSourceViaCEC() async -> CECResult {
-        await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                var messagePointer: UnsafeMutablePointer<CChar>?
-                let ok = TVCECPrivateCheck(&messagePointer)
-                continuation.resume(returning: CECResult(isSuccess: ok, message: Self.message(from: messagePointer)))
-            }
-        }
-    }
-
-    private func runPrivateCEC(_ command: UInt8) async -> CECResult {
-        await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                var messagePointer: UnsafeMutablePointer<CChar>?
-                let ok = TVCECPrivateSendUserControl(command, &messagePointer)
-                continuation.resume(returning: CECResult(isSuccess: ok, message: Self.message(from: messagePointer)))
-            }
-        }
-    }
-
-    private func runPrivateActiveSourceCEC() async -> CECResult {
-        await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                var messagePointer: UnsafeMutablePointer<CChar>?
-                let ok = TVCECPrivateBecomeActiveSource(&messagePointer)
-                continuation.resume(returning: CECResult(isSuccess: ok, message: Self.message(from: messagePointer)))
-            }
-        }
-    }
-
-    private func sleepForCECStep() async {
-        try? await Task.sleep(nanoseconds: 150_000_000)
-    }
-
-    private static func message(from pointer: UnsafeMutablePointer<CChar>?) -> String {
-        guard let pointer else {
-            return "Apple 私有 IOCEC 没有返回详细信息。"
-        }
-
-        let message = String(cString: pointer)
-        TVCECPrivateFreeMessage(pointer)
-        return message
-    }
-}
-
-private final class MiTVController {
-    private let port = 6095
-    private var backlightOSDActiveUntil: Date?
-
-    private var host: String {
-        if let value = ProcessInfo.processInfo.environment["TV_VOLUME_MITV_HOST"]?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !value.isEmpty {
-            return value
-        }
-
-        if let value = UserDefaults.standard.string(forKey: "MiTVHost")?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !value.isEmpty {
-            return value
-        }
-
-        return "192.168.1.50"
-    }
-
-    var currentHost: String {
-        host
-    }
-
-    var currentInputName: String {
-        UserDefaults.standard.string(forKey: "MiTVInputName") ?? "--"
-    }
-
-    func setHost(_ host: String) {
-        UserDefaults.standard.set(host, forKey: "MiTVHost")
-    }
-
-    func setCurrentInputName(_ inputName: String) {
-        UserDefaults.standard.set(inputName, forKey: "MiTVInputName")
-    }
-
-    func checkAvailability() async -> CECResult {
-        await request(path: "/controller?action=getinstalledapp&count=1", successMessage: "已连接到小米电视：\(host):\(port)")
-    }
-
-    func deviceStatus() async -> Result<MiTVDevice, CECResult> {
-        let result = await requestJSON(path: "/request?action=isalive")
-        guard result.response.isSuccess,
-              let root = result.json as? [String: Any],
-              let data = root["data"] as? [String: Any]
-        else {
-            return .failure(result.response)
-        }
-
-        let name = (data["devicename"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return .success(MiTVDevice(
-            name: name?.isEmpty == false ? name! : "MiTV",
-            host: host
-        ))
-    }
-
-    func discoverDevices() async -> Result<[MiTVDevice], CECResult> {
-        let prefixes = Self.localIPv4Prefixes()
-        guard !prefixes.isEmpty else {
-            return .failure(CECResult(isSuccess: false, message: "没有找到可用于扫描的局域网 IPv4 地址。"))
-        }
-
-        let hosts = Set(prefixes.flatMap { prefix in
-            (1...254).map { "\(prefix).\($0)" }
-        })
-
-        let devices = await withTaskGroup(of: MiTVDevice?.self, returning: [MiTVDevice].self) { group in
-            for host in hosts {
-                group.addTask {
-                    await self.probeDevice(host)
-                }
-            }
-
-            var found: [MiTVDevice] = []
-            for await device in group {
-                if let device {
-                    found.append(device)
-                }
-            }
-            return found.sorted { $0.host.localizedStandardCompare($1.host) == .orderedAscending }
-        }
-
-        return .success(devices)
-    }
-
-    private func probeDevice(_ host: String) async -> MiTVDevice? {
-        let result = await requestJSON(host: host, path: "/request?action=isalive", timeout: 0.45)
-        guard result.response.isSuccess,
-              let root = result.json as? [String: Any],
-              let data = root["data"] as? [String: Any]
-        else {
-            return nil
-        }
-
-        let name = (data["devicename"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return MiTVDevice(
-            name: name?.isEmpty == false ? name! : "MiTV",
-            host: host
-        )
-    }
-
-    func volumeStatus() async -> Result<VolumeStatus, CECResult> {
-        let result = await requestJSON(path: "/controller?action=getvolume")
-        guard result.response.isSuccess else {
-            return .failure(result.response)
-        }
-
-        guard
-            let root = result.json as? [String: Any],
-            let data = root["data"] as? [String: Any],
-            let volume = data["volume"] as? Int,
-            let maxVolume = data["maxVolume"] as? Int
-        else {
-            return .failure(CECResult(isSuccess: false, message: "小米电视返回的音量格式无法识别。\n\n\(result.body)"))
-        }
-
-        return .success(VolumeStatus(volume: volume, maxVolume: maxVolume))
-    }
-
-    func systemInfo() async -> Result<MiTVSystemInfo, CECResult> {
-        let result = await requestJSON(path: "/controller?action=getsysteminfo")
-        guard result.response.isSuccess else {
-            return .failure(result.response)
-        }
-
-        guard
-            let root = result.json as? [String: Any],
-            let data = root["data"] as? [String: Any]
-        else {
-            return .failure(CECResult(isSuccess: false, message: "小米电视返回的系统信息格式无法识别。\n\n\(result.body)"))
-        }
-
-        return .success(MiTVSystemInfo(
-            wifiMAC: data["wifimac"] as? String,
-            ethernetMAC: data["ethmac"] as? String
-        ))
-    }
-
-    func setVolumePercent(_ percent: Int) async -> CECResult {
-        let clamped = min(100, max(0, percent))
-
-        let statusResult = await volumeStatus()
-        guard case .success(let status) = statusResult else {
-            if case .failure(let failure) = statusResult {
-                return failure
-            }
-            return CECResult(isSuccess: false, message: "无法读取当前音量。")
-        }
-
-        let targetVolume = Int((Double(clamped) / 100.0 * Double(status.maxVolume)).rounded())
-        let signedResult = await setVolumeBySignedGeneralAPI(targetVolume)
-        if signedResult.isSuccess {
-            return signedResult
-        }
-
-        let delta = targetVolume - status.volume
-        guard delta != 0 else {
-            return CECResult(isSuccess: true, message: "音量已经是 \(clamped)%。")
-        }
-
-        let keyCode = delta > 0 ? "volumeup" : "volumedown"
-        for _ in 0..<abs(delta) {
-            let result = await sendKey(keyCode)
-            if !result.isSuccess {
-                return result
-            }
-            try? await Task.sleep(nanoseconds: 45_000_000)
-        }
-
-        return CECResult(isSuccess: true, message: "签名音量接口不可用，已用遥控按键设置到约 \(clamped)%。\n\n\(signedResult.message)")
-    }
-
-    func setVolumePercentViaSetVolumOnly(_ percent: Int) async -> CECResult {
-        let clamped = min(100, max(0, percent))
-        let statusResult = await volumeStatus()
-        let targetVolume: Int
-
-        if case .success(let status) = statusResult {
-            targetVolume = Int((Double(clamped) / 100.0 * Double(status.maxVolume)).rounded())
-        } else {
-            targetVolume = clamped
-        }
-
-        return await setVolumeBySignedGeneralAPI(targetVolume)
-    }
-
-    private func setVolumeBySignedGeneralAPI(_ volume: Int) async -> CECResult {
-        let systemInfoResult = await systemInfo()
-        guard case .success(let info) = systemInfoResult, let mac = info.signingMAC else {
-            if case .failure(let failure) = systemInfoResult {
-                return failure
-            }
-            return CECResult(isSuccess: false, message: "无法读取小米设备 MAC，不能生成 setVolum 签名。")
-        }
-
-        let timestamp = String(Int(Date().timeIntervalSince1970))
-        let signSource = "mitvsignsalt&\(volume)&\(mac)&\(timestamp)"
-        let sign = Self.md5(signSource)
-        let path = "/general?action=setVolum&volum=\(volume)&ts=\(timestamp)&sign=\(sign)"
-        let result = await requestJSON(path: path)
-        guard result.response.isSuccess else {
-            return CECResult(
-                isSuccess: false,
-                message: """
-                文章里的 setVolum 签名接口在当前设备上不可用，已回退到遥控按键方式。
-
-                请求路径：\(path)
-                返回：\(result.response.message)
-                """
-            )
-        }
-
-        return CECResult(isSuccess: true, message: "已通过 setVolum 签名接口设置音量：\(volume)。")
-    }
-
-    private static func md5(_ string: String) -> String {
-        let digest = Insecure.MD5.hash(data: Data(string.utf8))
-        return digest.map { String(format: "%02x", $0) }.joined()
-    }
-
-    func sendKey(_ keyCode: String) async -> CECResult {
-        await request(path: "/controller?action=keyevent&keycode=\(keyCode)", successMessage: "已通过小米电视 Wi-Fi 接口发送：\(keyCode)")
-    }
-
-    func switchHDMIInput(_ input: Int) async -> CECResult {
-        let clamped = min(2, max(1, input))
-        return await switchInputSource("hdmi\(clamped)", displayName: "HDMI \(clamped)")
-    }
-
-    func switchInputSource(_ source: String, displayName: String) async -> CECResult {
-        return await request(
-            path: "/controller?action=changesource&source=\(source)",
-            successMessage: "已通过小米电视 Wi-Fi 接口切换到 \(displayName)"
-        )
-    }
-
-    func adjustBacklight(_ direction: BrightnessDirection) async -> CECResult {
-        let shouldOpenBacklightMenu = !(backlightOSDActiveUntil.map { Date() < $0 } ?? false)
-
-        if shouldOpenBacklightMenu {
-            let openBacklight = ["menu", "right", "down", "right"]
-
-            for key in openBacklight {
-                let result = await sendKey(key)
-                guard result.isSuccess else {
-                    return result
-                }
-                await sleepForMenuStep()
-            }
-        }
-
-        let result = await sendKey(direction.remoteKey)
-        guard result.isSuccess else {
-            return result
-        }
-
-        backlightOSDActiveUntil = Date().addingTimeInterval(10)
-
-        return CECResult(
-            isSuccess: true,
-            message: shouldOpenBacklightMenu
-                ? "已打开小米/Redmi 显示器亮度菜单并\(direction.displayName)亮度。OSD 菜单会在约 10 秒后自动消失。"
-                : "OSD 菜单仍打开，只发送了\(direction.displayName)亮度按键。"
-        )
-    }
-
-    private func sleepForMenuStep() async {
-        try? await Task.sleep(nanoseconds: 400_000_000)
-    }
-
-    private func sleepForAdjustmentStep() async {
-        try? await Task.sleep(nanoseconds: 35_000_000)
-    }
-
-    private func request(path: String, successMessage: String) async -> CECResult {
-        let result = await requestJSON(path: path)
-        guard result.response.isSuccess else {
-            return result.response
-        }
-        return CECResult(isSuccess: true, message: "\(successMessage)\n\n\(result.body)")
-    }
-
-    private func requestJSON(path: String) async -> (response: CECResult, json: Any?, body: String) {
-        await requestJSON(host: host, path: path, timeout: 2)
-    }
-
-    private func requestJSON(host: String, path: String, timeout: TimeInterval) async -> (response: CECResult, json: Any?, body: String) {
-        guard let url = URL(string: "http://\(host):\(port)\(path)") else {
-            let response = CECResult(isSuccess: false, message: "小米电视地址无效：\(host)")
-            return (response, nil, "")
-        }
-
-        var request = URLRequest(url: url)
-        request.timeoutInterval = timeout
-
-        do {
-            let (data, urlResponse) = try await URLSession.shared.data(for: request)
-            let statusCode = (urlResponse as? HTTPURLResponse)?.statusCode ?? 0
-            let body = String(data: data, encoding: .utf8) ?? ""
-            let normalizedBody = body.replacingOccurrences(of: "\r", with: "")
-            let json = try? JSONSerialization.jsonObject(with: data)
-
-            guard statusCode == 200 else {
-                let response = CECResult(isSuccess: false, message: "HTTP \(statusCode)\n\(normalizedBody)")
-                return (response, json, normalizedBody)
-            }
-
-            if normalizedBody.localizedCaseInsensitiveContains("\"msg\":\"success\"") {
-                let response = CECResult(isSuccess: true, message: normalizedBody)
-                return (response, json, normalizedBody)
-            }
-
-            let response = CECResult(isSuccess: false, message: normalizedBody.isEmpty ? "小米电视没有返回内容。" : normalizedBody)
-            return (response, json, normalizedBody)
-        } catch {
-            let response = CECResult(
-                isSuccess: false,
-                message: """
-                无法连接小米电视 Wi-Fi 接口：\(host):\(port)
-
-                目前默认使用本机发现到的 mitv-mffu1 地址 192.168.1.50。
-                如果电视 IP 变了，可以用环境变量指定：
-                TV_VOLUME_MITV_HOST=电视IP ./script/build_and_run.sh
-
-                \(error.localizedDescription)
-                """
-            )
-            return (response, nil, "")
-        }
-    }
-
-    private static func localIPv4Prefixes() -> [String] {
-        var addresses: [String] = []
-        var interfaces: UnsafeMutablePointer<ifaddrs>?
-
-        guard getifaddrs(&interfaces) == 0, let firstInterface = interfaces else {
-            return []
-        }
-        defer {
-            freeifaddrs(interfaces)
-        }
-
-        for pointer in sequence(first: firstInterface, next: { $0.pointee.ifa_next }) {
-            let interface = pointer.pointee
-            let flags = Int32(interface.ifa_flags)
-            let isUp = (flags & IFF_UP) != 0
-            let isLoopback = (flags & IFF_LOOPBACK) != 0
-
-            guard isUp, !isLoopback,
-                  let address = interface.ifa_addr,
-                  address.pointee.sa_family == UInt8(AF_INET)
-            else {
-                continue
-            }
-
-            var addr = address.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee.sin_addr }
-            var buffer = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
-            guard inet_ntop(AF_INET, &addr, &buffer, socklen_t(INET_ADDRSTRLEN)) != nil else {
-                continue
-            }
-
-            let ip = String(cString: buffer)
-            let parts = ip.split(separator: ".")
-            guard parts.count == 4 else {
-                continue
-            }
-
-            addresses.append(parts.prefix(3).joined(separator: "."))
-        }
-
-        return Array(Set(addresses)).sorted()
-    }
-}
-
-private final class BrightnessController {
-    private let miTV = MiTVController()
-
-    private enum Tool {
-        case m1ddc(URL)
-        case ddcctl(URL)
-
-        var name: String {
-            switch self {
-            case .m1ddc:
-                return "m1ddc"
-            case .ddcctl:
-                return "ddcctl"
-            }
-        }
-    }
-
-    func brightnessStatus() async -> Result<Int, CECResult> {
-        guard let tool = findTool() else {
-            return .success(50)
-        }
-
-        switch tool {
-        case .m1ddc(let url):
-            let result = await run(url, ["get", "luminance"])
-            guard result.isSuccess else {
-                return .failure(result)
-            }
-            guard let value = parsePercent(from: result.message, keywords: ["luminance", "brightness"]) else {
-                return .failure(CECResult(isSuccess: false, message: "已找到 m1ddc，但没有读到当前亮度。\n\n\(result.message)"))
-            }
-            return .success(value)
-
-        case .ddcctl(let url):
-            let result = await run(url, ["-d", "1"])
-            guard result.isSuccess else {
-                return .failure(result)
-            }
-            guard let value = parsePercent(from: result.message, keywords: ["brightness", "luminance"]) else {
-                return .failure(CECResult(isSuccess: false, message: "已找到 ddcctl，但没有读到当前亮度。\n\n\(result.message)"))
-            }
-            return .success(value)
-        }
-    }
-
-    func adjustBrightness(_ direction: BrightnessDirection) async -> CECResult {
-        await miTV.adjustBacklight(direction)
-    }
-
-    private func findTool() -> Tool? {
-        if let url = findExecutable(named: "m1ddc") {
-            return .m1ddc(url)
-        }
-
-        if let url = findExecutable(named: "ddcctl") {
-            return .ddcctl(url)
-        }
-
-        return nil
-    }
-
-    private func findExecutable(named name: String) -> URL? {
-        let fileManager = FileManager.default
-        let pathValue = ProcessInfo.processInfo.environment["PATH"] ?? ""
-        let searchPaths = pathValue
-            .split(separator: ":")
-            .map(String.init) + ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"]
-
-        for directory in searchPaths {
-            let path = "\(directory)/\(name)"
-            if fileManager.isExecutableFile(atPath: path) {
-                return URL(fileURLWithPath: path)
-            }
-        }
-
-        return nil
-    }
-
-    private func run(_ executableURL: URL, _ arguments: [String]) async -> CECResult {
-        await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                let process = Process()
-                let pipe = Pipe()
-                process.executableURL = executableURL
-                process.arguments = arguments
-                process.standardOutput = pipe
-                process.standardError = pipe
-
-                do {
-                    try process.run()
-                    process.waitUntilExit()
-                    let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                    let output = String(data: data, encoding: .utf8)?
-                        .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-
-                    if process.terminationStatus == 0 {
-                        continuation.resume(returning: CECResult(isSuccess: true, message: output))
-                    } else {
-                        continuation.resume(returning: CECResult(
-                            isSuccess: false,
-                            message: "\(executableURL.lastPathComponent) 执行失败。\n\n\(output)"
-                        ))
-                    }
-                } catch {
-                    continuation.resume(returning: CECResult(
-                        isSuccess: false,
-                        message: "\(executableURL.lastPathComponent) 无法启动：\(error.localizedDescription)"
-                    ))
-                }
-            }
-        }
-    }
-
-    private func parsePercent(from output: String, keywords: [String]) -> Int? {
-        let lines = output.split(whereSeparator: \.isNewline).map(String.init)
-        let candidateLines = lines.filter { line in
-            keywords.contains { keyword in
-                line.localizedCaseInsensitiveContains(keyword)
-            }
-        } + lines
-
-        for line in candidateLines {
-            let numbers = line.split { !$0.isNumber }.compactMap { Int($0) }
-            if let value = numbers.first(where: { (0...100).contains($0) }) {
-                return value
-            }
-        }
-
-        return nil
+        showResult(title: L.string("picker.switched"), result: CECResult(isSuccess: true, message: L.string("picker.current_target", host)))
     }
 }
 
