@@ -16,6 +16,8 @@ APP_RESOURCES="$APP_CONTENTS/Resources"
 APP_BINARY="$APP_MACOS/$APP_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 PKG_INFO="$APP_CONTENTS/PkgInfo"
+ICON_SOURCE="$ROOT_DIR/assets/MiTV-Remote.icns"
+ICON_DESTINATION="$APP_RESOURCES/MiTV-Remote.icns"
 
 cd "$ROOT_DIR"
 
@@ -29,6 +31,11 @@ mkdir -p "$APP_MACOS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
 
+if [[ ! -f "$ICON_SOURCE" ]]; then
+  "$ROOT_DIR/script/generate_app_icon.sh" >/dev/null
+fi
+cp "$ICON_SOURCE" "$ICON_DESTINATION"
+
 cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -40,6 +47,10 @@ cat >"$INFO_PLIST" <<PLIST
   <string>$BUNDLE_ID</string>
   <key>CFBundleName</key>
   <string>$APP_NAME</string>
+  <key>CFBundleDisplayName</key>
+  <string>$APP_NAME</string>
+  <key>CFBundleIconFile</key>
+  <string>MiTV-Remote.icns</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>LSMinimumSystemVersion</key>
